@@ -1,0 +1,21 @@
+# Don't commit environment files
+.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Output directories
+dist/
+build/
+
+# OS-specific files
+.DS_Store
+
+# Editor-specific files
+.vscode/
+.idea/
