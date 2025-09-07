@@ -21,28 +21,39 @@ export default function chatSocket(io) {
 
     console.log("User connected:", user.id);
 
+    // ----------------- joinRoom -----------------
     socket.on("joinRoom", async (roomId) => {
       if (!roomId) return;
 
       const room = await ChatRoom.findById(roomId);
       if (!room) return;
 
-      if (!room.participants.includes(user.id)) {
+      const isParticipant = room.participants.some(
+        (p) => p.participantId.toString() === user.id
+      );
+
+      if (!isParticipant) {
         console.log(
           `User ${user.id} tried to join room ${roomId} without permission`
         );
-        return; // ไม่อนุญาตให้เข้าห้อง
+        return;
       }
 
       socket.join(roomId);
       console.log(`User ${user.id} joined room ${roomId}`);
     });
 
+    // ----------------- sendMessage -----------------
     socket.on("sendMessage", async ({ roomId, text }) => {
       if (!roomId || !text) return;
 
       const room = await ChatRoom.findById(roomId);
-      if (!room || !room.participants.includes(user.id)) {
+      if (!room) return;
+
+      const senderInfo = room.participants.find(
+        (p) => p.participantId.toString() === user.id
+      );
+      if (!senderInfo) {
         console.log(
           `User ${user.id} tried to send message to room ${roomId} without permission`
         );
@@ -53,16 +64,17 @@ export default function chatSocket(io) {
         const msg = await Message.create({
           chatRoomId: roomId,
           sender: user.id,
-          senderModel: user.role,
+          senderModel: senderInfo.participantModel, // เอา role จาก room
           text,
           readBy: [user.id],
-          readByModel: [user.role],
+          readByModel: [senderInfo.participantModel],
         });
 
-        await ChatRoom.findByIdAndUpdate(roomId, {
-          lastMessage: text,
-          updatedAt: new Date(),
-        });
+        // อัปเดต lastMessage ใน room
+        room.lastMessage = text;
+        room.lastMessageAt = new Date();
+        room.updatedAt = new Date();
+        await room.save();
 
         io.to(roomId).emit("newMessage", msg);
       } catch (err) {
@@ -70,12 +82,30 @@ export default function chatSocket(io) {
       }
     });
 
+    // ----------------- markAsRead -----------------
     socket.on("markAsRead", async ({ roomId }) => {
       if (!roomId) return;
+
       try {
+        const room = await ChatRoom.findById(roomId);
+        if (!room) return;
+
+        const participantInfo = room.participants.find(
+          (p) => p.participantId.toString() === user.id
+        );
+        if (!participantInfo) return;
+
         await Message.updateMany(
-          { chatRoomId: roomId, readBy: { $ne: user.id } },
-          { $push: { readBy: user.id, readByModel: user.role } }
+          {
+            chatRoomId: roomId,
+            readBy: { $ne: user.id },
+          },
+          {
+            $push: {
+              readBy: user.id,
+              readByModel: participantInfo.participantModel,
+            },
+          }
         );
       } catch (err) {
         console.error("markAsRead error:", err);
