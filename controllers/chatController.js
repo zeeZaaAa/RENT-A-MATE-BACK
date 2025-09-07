@@ -6,13 +6,12 @@ import Renter from "../models/renters.js";
 export const getChatList = async (req, res) => {
   try {
     const userId = req.user.id;
-    const userRole = req.user.role; // 'mate' หรือ 'renter'
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 6;
 
     // ดึง ChatRoom ของ user
     const chatRooms = await ChatRoom.find({
-      "participants.participantId": userId
+      "participants.participantId": userId,
     })
       .sort({ updatedAt: -1 })
       .skip((page - 1) * pageSize)
@@ -20,26 +19,21 @@ export const getChatList = async (req, res) => {
       .populate({
         path: "participants.participantId",
         select: "name surName role pic",
-        model: (doc) =>
-          doc.participants.find(p => p.participantId.equals(userId)).participantModel
+        refPath: "participants.participantModel", // refPath ใช้งานได้
       });
 
     // จำนวนหน้า
     const totalCount = await ChatRoom.countDocuments({
-      "participants.participantId": userId
+      "participants.participantId": userId,
     });
     const totalPages = Math.ceil(totalCount / pageSize);
 
     // Map ข้อมูลสำหรับ front-end
-    const chatList = chatRooms.map(room => {
+    const chatList = chatRooms.map((room) => {
       // หา user อื่น
       const other = room.participants.find(
-        p => p.participantId._id.toString() !== userId
+        (p) => p.participantId._id.toString() !== userId
       );
-
-      const unread = room.lastMessage && room.lastMessageAt
-        ? true // ถ้าต้องการ logic ว่า unread ยังไม่ได้อ่าน
-        : false;
 
       return {
         id: room._id,
@@ -49,7 +43,7 @@ export const getChatList = async (req, res) => {
           : "Unknown",
         message: room.lastMessage || "",
         pic: other?.participantId?.pic || "",
-        unread,
+        unread: room.lastMessage && room.lastMessageAt ? true : false,
         updatedAt: room.updatedAt,
       };
     });
@@ -61,7 +55,6 @@ export const getChatList = async (req, res) => {
   }
 };
 
-
 // POST /chat/create
 export const createChatRoom = async (req, res) => {
   try {
@@ -70,46 +63,65 @@ export const createChatRoom = async (req, res) => {
     const { participantId, participantRole } = req.body; // participantRole = 'mate' | 'renter'
 
     if (!participantId || !participantRole) {
-      return res.status(400).json({ message: "participantId and participantRole are required" });
+      return res
+        .status(400)
+        .json({ message: "participantId and participantRole are required" });
     }
 
-    if (!["mate", "renter"].includes(userRole) || !["mate", "renter"].includes(participantRole)) {
+    if (
+      !["mate", "renter"].includes(userRole) ||
+      !["mate", "renter"].includes(participantRole)
+    ) {
       return res.status(400).json({ message: "Invalid role" });
     }
 
     // หาว่ามี chatRoom อยู่แล้วรึยัง (ใช้ $all กับ nested fields)
     let chatRoom = await ChatRoom.findOne({
-      "participants.participantId": { $all: [userId, participantId] }
+      "participants.participantId": { $all: [userId, participantId] },
     });
 
     if (!chatRoom) {
       // ถ้ายังไม่มี → สร้างใหม่
       chatRoom = await ChatRoom.create({
         participants: [
-          { participantId: userId, participantModel: userRole === "mate" ? "Mate" : "Renter" },
-          { participantId: participantId, participantModel: participantRole === "mate" ? "Mate" : "Renter" }
+          {
+            participantId: userId,
+            participantModel: userRole === "mate" ? "Mate" : "Renter",
+          },
+          {
+            participantId: participantId,
+            participantModel: participantRole === "mate" ? "Mate" : "Renter",
+          },
         ],
         lastMessage: "",
       });
 
       // อัปเดต chatRoomIds ของทั้งสองฝั่ง
       if (userRole === "mate") {
-        await Mate.findByIdAndUpdate(userId, { $push: { chatRoomIds: chatRoom._id } });
+        await Mate.findByIdAndUpdate(userId, {
+          $push: { chatRoomIds: chatRoom._id },
+        });
       } else {
-        await Renter.findByIdAndUpdate(userId, { $push: { chatRoomIds: chatRoom._id } });
+        await Renter.findByIdAndUpdate(userId, {
+          $push: { chatRoomIds: chatRoom._id },
+        });
       }
 
       if (participantRole === "mate") {
-        await Mate.findByIdAndUpdate(participantId, { $push: { chatRoomIds: chatRoom._id } });
+        await Mate.findByIdAndUpdate(participantId, {
+          $push: { chatRoomIds: chatRoom._id },
+        });
       } else {
-        await Renter.findByIdAndUpdate(participantId, { $push: { chatRoomIds: chatRoom._id } });
+        await Renter.findByIdAndUpdate(participantId, {
+          $push: { chatRoomIds: chatRoom._id },
+        });
       }
     }
 
     // populate participants
     chatRoom = await chatRoom.populate({
       path: "participants.participantId",
-      select: "name surName role pic"
+      select: "name surName role pic",
     });
 
     res.status(200).json({
@@ -120,13 +132,11 @@ export const createChatRoom = async (req, res) => {
         updatedAt: chatRoom.updatedAt,
       },
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const getMessages = async (req, res) => {
   try {
@@ -193,10 +203,11 @@ export const room = async (req, res) => {
       ).lean();
     }
 
-    res.status(200).json({ success: true, participants: participant ? [participant] : [] });
+    res
+      .status(200)
+      .json({ success: true, participants: participant ? [participant] : [] });
   } catch (err) {
     console.error("getChatRoom error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-

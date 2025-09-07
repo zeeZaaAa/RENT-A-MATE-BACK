@@ -5,6 +5,11 @@ import ChatRoom from "../models/chatroom.js";
 export default function chatSocket(io) {
   io.on("connection", (socket) => {
     const token = socket.handshake.auth?.token;
+    const roleMap = {
+      renter: "Renter",
+      mate: "Mate",
+    };
+
     if (!token) {
       socket.disconnect(true);
       return;
@@ -61,13 +66,15 @@ export default function chatSocket(io) {
       }
 
       try {
+        const senderModel = roleMap[user.role]; // map เป็นตัวพิมพ์ใหญ่ตรง enum
+
         const msg = await Message.create({
           chatRoomId: roomId,
           sender: user.id,
-          senderModel: user.role.toLowerCase(), // <-- แก้ตรงนี้
+          senderModel, // ใช้ role map
           text,
           readBy: [user.id],
-          readByModel: [user.role.toLowerCase()], // <-- แก้ตรงนี้
+          readByModel: [senderModel], // ต้องตรง enum เช่นกัน
         });
 
         // อัปเดต lastMessage ใน room
@@ -103,7 +110,8 @@ export default function chatSocket(io) {
           {
             $push: {
               readBy: user.id,
-              readByModel: participantInfo.participantModel,
+              readByModel:
+                roleMap[participantInfo.participantModel.toLowerCase()],
             },
           }
         );
