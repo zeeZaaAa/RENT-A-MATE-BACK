@@ -64,10 +64,10 @@ export default function chatSocket(io) {
         const msg = await Message.create({
           chatRoomId: roomId,
           sender: user.id,
-          senderModel: senderInfo.participantModel, // เอา role จาก room
+          senderModel: user.role.toLowerCase(), // <-- แก้ตรงนี้
           text,
           readBy: [user.id],
-          readByModel: [senderInfo.participantModel],
+          readByModel: [user.role.toLowerCase()], // <-- แก้ตรงนี้
         });
 
         // อัปเดต lastMessage ใน room
