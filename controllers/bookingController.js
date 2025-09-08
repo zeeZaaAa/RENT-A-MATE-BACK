@@ -4,7 +4,7 @@ import Mate from "../models/mates.js";
 import Renter from "../models/renters.js";
 import Stripe from "stripe";
 import { isMateSetupComplete } from "../utils/validateMateComplete.js";
-import { zonedTimeToUtc } from "date-fns-tz";
+import { zonedTimeToUtc, utcToZonedTime } from "date-fns-tz";
 
 export const book = async (req, res) => {
   const { startTime, endTime, place, purpose, others = "" } = req.body;
@@ -50,7 +50,8 @@ export const book = async (req, res) => {
     if (!mate) return res.status(404).json({ message: "Mate not found" });
 
     // Validate กับ avaliable_date
-    const day = start.getDay(); // 0=Sun,...6=Sat
+    const startBangkok = utcToZonedTime(start, "Asia/Bangkok");
+    const day = startBangkok.getDay(); // 0=Sun,...6=Sat
     switch (mate.avaliable_date) {
       case "weekdays":
         if (day < 1 || day > 5)
@@ -75,10 +76,13 @@ export const book = async (req, res) => {
       const [availStartHour, availStartMin] = startStr.split(":").map(Number);
       const [availEndHour, availEndMin] = endStr.split(":").map(Number);
 
-      const startHour = start.getHours();
-      const startMin = start.getMinutes();
-      const endHour = end.getHours();
-      const endMin = end.getMinutes();
+      const startBangkok = utcToZonedTime(start, "Asia/Bangkok");
+      const endBangkok = utcToZonedTime(end, "Asia/Bangkok");
+
+      const startHour = startBangkok.getHours();
+      const startMin = startBangkok.getMinutes();
+      const endHour = endBangkok.getHours();
+      const endMin = endBangkok.getMinutes();
 
       const startTotalMin = startHour * 60 + startMin;
       const endTotalMin = endHour * 60 + endMin;
@@ -160,7 +164,13 @@ export const confirmBooking = async (req, res) => {
     }
 
     const booking = await HoldingBooking.findById(bookingId);
+    if (!booking || booking.renterId.toString() !== renterId.toString()) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
     const mate = await Mate.findById(booking.mateId);
+    if (!mate) return res.status(404).json({ message: "Mate not found" });
+
     if (!isMateSetupComplete(mate)) {
       return res.status(400).json({
         message:
@@ -168,10 +178,7 @@ export const confirmBooking = async (req, res) => {
       });
     }
 
-    if (!booking || booking.renterId.toString() !== renterId.toString()) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
-
+    // ตรวจ payment
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const paymentIntent = await stripe.paymentIntents.retrieve(
       booking.stripePaymentIntentId
@@ -181,6 +188,7 @@ export const confirmBooking = async (req, res) => {
       return res.status(402).json({ message: "Payment not completed" });
     }
 
+    // ตรวจเวลาหมดอายุ
     const now = new Date();
     const created = new Date(booking.createdAt);
     if (now - created > 10 * 60 * 1000) {
@@ -190,10 +198,69 @@ export const confirmBooking = async (req, res) => {
         .json({ message: "Booking expired. Please try again." });
     }
 
-    booking.startTime = new Date(booking.startTime);
-    booking.endTime = new Date(booking.endTime);
+    // แปลงเวลาเป็น Bangkok
+    const startBangkok = utcToZonedTime(booking.startTime, "Asia/Bangkok");
+    const endBangkok = utcToZonedTime(booking.endTime, "Asia/Bangkok");
 
-    const conflict = await Transaction.findOne({
+    // ตรวจ available_date
+    const day = startBangkok.getDay();
+    switch (mate.avaliable_date) {
+      case "weekdays":
+        if (day < 1 || day > 5)
+          return res.status(400).json({
+            message: "Selected date is not available (weekdays only)",
+          });
+        break;
+      case "weekends":
+        if (day !== 0 && day !== 6)
+          return res.status(400).json({
+            message: "Selected date is not available (weekends only)",
+          });
+        break;
+      case "all":
+      default:
+        break;
+    }
+
+    // ตรวจ available_time
+    if (mate.avaliable_time && mate.avaliable_time.length === 2) {
+      const [startStr, endStr] = mate.avaliable_time;
+      const [availStartHour, availStartMin] = startStr.split(":").map(Number);
+      const [availEndHour, availEndMin] = endStr.split(":").map(Number);
+
+      const startTotalMin =
+        startBangkok.getHours() * 60 + startBangkok.getMinutes();
+      const endTotalMin = endBangkok.getHours() * 60 + endBangkok.getMinutes();
+      const availStartTotalMin = availStartHour * 60 + availStartMin;
+      const availEndTotalMin = availEndHour * 60 + availEndMin;
+
+      if (
+        startTotalMin < availStartTotalMin ||
+        startTotalMin >= availEndTotalMin
+      )
+        return res
+          .status(400)
+          .json({ message: "Start time is outside available hours" });
+
+      if (endTotalMin <= availStartTotalMin || endTotalMin > availEndTotalMin)
+        return res
+          .status(400)
+          .json({ message: "End time is outside available hours" });
+    }
+
+    // ตรวจเวลาซ้ำทั้ง HoldingBooking และ Transaction
+    const conflictHolding = await HoldingBooking.findOne({
+      mateId: booking.mateId,
+      _id: { $ne: booking._id },
+      $or: [
+        {
+          startTime: { $lt: booking.endTime },
+          endTime: { $gt: booking.startTime },
+        },
+      ],
+    });
+
+    const conflictTransaction = await Transaction.findOne({
       mateId: booking.mateId,
       status: { $ne: "refunded" },
       $or: [
@@ -204,7 +271,7 @@ export const confirmBooking = async (req, res) => {
       ],
     });
 
-    if (conflict) {
+    if (conflictHolding || conflictTransaction) {
       await HoldingBooking.findByIdAndDelete(bookingId);
       return res.status(409).json({ message: "Time slot already booked" });
     }
@@ -395,7 +462,7 @@ export const request = async (req, res) => {
       .populate({
         path: "renterId",
         model: Renter,
-        select: "name surName nickname", 
+        select: "name surName nickname",
       });
 
     const safeData = transactions.map((t) => ({
@@ -622,7 +689,10 @@ export const mate = async (req, res) => {
       });
 
     const safeData = transactions.map((t) => {
-      const canEnd = t.status === "confirmed" && new Date(t.endTime) <= now;
+      const endBangkok = utcToZonedTime(t.endTime, "Asia/Bangkok");
+      const canEnd =
+        t.status === "confirmed" &&
+        endBangkok <= utcToZonedTime(now, "Asia/Bangkok");
 
       return {
         id: t._id,
