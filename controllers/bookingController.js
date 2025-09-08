@@ -69,6 +69,10 @@ export const book = async (req, res) => {
       default:
         break;
     }
+    console.log("startBangkok:", startBangkok);
+    console.log("availStart:", mate.avaliable_time[0]);
+    console.log("availEnd:", mate.avaliable_time[1]);
+
 
     // Validate กับ avaliable_time
     if (mate.avaliable_time && mate.avaliable_time.length === 2) {
