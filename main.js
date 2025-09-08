@@ -34,13 +34,20 @@ const PORT = process.env.PORT;
 
 connectDB();
 
+app.set("trust proxy", 1);
+
 app.use(cors({
   origin: [`${process.env.FRONT_API}`],
   methods: ["GET", "POST", "PUT", "DELETE"],
 }));
 app.use(express.json());
 app.use(helmet());
-app.use(rateLimit({ windowMs: 1 * 60 * 1000, max: 100 }));
+app.use(rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 นาที
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
 
 
 app.use('/api/auth', authRoutes);
