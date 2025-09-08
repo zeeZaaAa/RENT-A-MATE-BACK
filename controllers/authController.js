@@ -83,25 +83,22 @@ export const register = async (req, res) => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     const verifyTokenHash = hashVerifyToken(verifyToken);
 
-    const existing = await Unverify_user.findOne({ email });
+    await Unverify_user.updateOne(
+      { email }, // filter
+      {
+        $set: {
+          name,
+          surName,
+          passwordHash,
+          birthDate,
+          role,
+          verifyTokenHash,
+          expiresAt,
+        },
+      },
+      { upsert: true } // ถ้าไม่มีจะสร้าง document ใหม่
+      );
 
-    if (existing) {
-      existing.verifyTokenHash = verifyTokenHash;
-      existing.expiresAt = expiresAt;
-      await existing.save();
-    } else {
-      const baseData = {
-        name,
-        surName,
-        email,
-        passwordHash,
-        birthDate,
-        role,
-        verifyTokenHash,
-        expiresAt,
-      };
-      await Unverify_user.create(baseData);
-    }
 
     res
       .status(201)
@@ -109,7 +106,7 @@ export const register = async (req, res) => {
 
     const verifyLink = `${process.env.FRONT_API}/auth/verify?token=${verifyToken}`;
 
-    sendEmail(email, verifyLink);
+    sendEmail(email, verifyLink).catch(err => console.error("Email send failed:", err));
   } catch (error) {
     console.error("Register error:", error);
     res.status(500).json({ message: "Server error" });
