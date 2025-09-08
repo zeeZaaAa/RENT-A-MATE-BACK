@@ -16,6 +16,7 @@ import reviewRoute from "./routes/reviewRoute.js"
 import chatSocket from './websockets/chat.js';
 import chatRoutes from './routes/chatRoutes.js'
 import likeMateRoutes from "./routes/likeMateRoutes.js"
+import { swaggerSpec, swaggerUi } from "./config/swagger.js";
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use('/mate', mateProfileRoutes);
 app.use('/review', reviewRoute);
 app.use("/api/chat", chatRoutes);
 app.use('/api/renter', likeMateRoutes);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 chatSocket(io)
 
