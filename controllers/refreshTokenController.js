@@ -7,7 +7,6 @@ export const refreshAccessToken = async (req, res) => {
   if (!refreshToken) return res.status(401).json({ message: 'No refresh token provided' });
 
   try {
-    // เช็คว่า refresh token ยังอยู่ใน DB
     const storedToken = await RefreshTokenModel.findOne({ token: refreshToken });
     if (!storedToken) return res.status(403).json({ message: 'Invalid refresh token' });
 

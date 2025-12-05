@@ -22,11 +22,10 @@ const reviewSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true // will add createdAt and updatedAt
+    timestamps: true
   }
 );
 
-// ห้ามรีวิวซ้ำใน booking เดียวกัน
 reviewSchema.index({ booking: 1, reviewer: 1 }, { unique: true });
 
 export default mongoose.model('Review', reviewSchema);

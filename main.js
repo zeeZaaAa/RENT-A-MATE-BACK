@@ -23,10 +23,10 @@ dotenv.config();
 import "./utils/autoRefunded.js"
 
 const app = express();
-const server = http.createServer(app); // ใช้ http.Server
+const server = http.createServer(app); 
 const io = new Server(server, {
   cors: {
-    origin: [process.env.FRONT_API], // frontend ของคุณ
+    origin: [process.env.FRONT_API], 
     methods: ["GET", "POST"]
   }
 });
@@ -44,7 +44,7 @@ app.use(cors({
 app.use(express.json());
 app.use(helmet());
 app.use(rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 นาที
+  windowMs: 1 * 60 * 1000, 
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,

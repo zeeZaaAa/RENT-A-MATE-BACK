@@ -9,7 +9,6 @@ export const getChatList = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 6;
 
-    // ดึง ChatRoom ของ user
     const chatRooms = await ChatRoom.find({
       "participants.participantId": userId,
     })
@@ -19,18 +18,15 @@ export const getChatList = async (req, res) => {
       .populate({
         path: "participants.participantId",
         select: "name surName role pic",
-        refPath: "participants.participantModel", // refPath ใช้งานได้
+        refPath: "participants.participantModel",
       });
 
-    // จำนวนหน้า
     const totalCount = await ChatRoom.countDocuments({
       "participants.participantId": userId,
     });
     const totalPages = Math.ceil(totalCount / pageSize);
 
-    // Map ข้อมูลสำหรับ front-end
     const chatList = chatRooms.map((room) => {
-      // หา user อื่น
       const other = room.participants.find(
         (p) => p.participantId._id.toString() !== userId
       );
@@ -58,9 +54,9 @@ export const getChatList = async (req, res) => {
 // POST /chat/create
 export const createChatRoom = async (req, res) => {
   try {
-    const userId = req.user.id; // assume auth middleware
-    const userRole = req.user.role; // 'mate' | 'renter'
-    const { participantId, participantRole } = req.body; // participantRole = 'mate' | 'renter'
+    const userId = req.user.id;
+    const userRole = req.user.role; 
+    const { participantId, participantRole } = req.body; 
 
     if (!participantId || !participantRole) {
       return res
@@ -75,13 +71,11 @@ export const createChatRoom = async (req, res) => {
       return res.status(400).json({ message: "Invalid role" });
     }
 
-    // หาว่ามี chatRoom อยู่แล้วรึยัง (ใช้ $all กับ nested fields)
     let chatRoom = await ChatRoom.findOne({
       "participants.participantId": { $all: [userId, participantId] },
     });
 
     if (!chatRoom) {
-      // ถ้ายังไม่มี → สร้างใหม่
       chatRoom = await ChatRoom.create({
         participants: [
           {
@@ -96,7 +90,6 @@ export const createChatRoom = async (req, res) => {
         lastMessage: "",
       });
 
-      // อัปเดต chatRoomIds ของทั้งสองฝั่ง
       if (userRole === "mate") {
         await Mate.findByIdAndUpdate(userId, {
           $push: { chatRoomIds: chatRoom._id },
@@ -118,7 +111,6 @@ export const createChatRoom = async (req, res) => {
       }
     }
 
-    // populate participants
     chatRoom = await chatRoom.populate({
       path: "participants.participantId",
       select: "name surName role pic",
@@ -149,7 +141,7 @@ export const getMessages = async (req, res) => {
     const pageSize = Math.min(parseInt(req.query.pageSize) || 50, 100);
 
     const messages = await Message.find({ chatRoomId: roomId })
-      .sort({ createdAt: 1 }) // จากเก่า -> ใหม่
+      .sort({ createdAt: 1 }) 
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .lean();
@@ -178,7 +170,6 @@ export const room = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Room not found" });
 
-    // หา participant ฝั่งตรงข้าม
     const otherParticipant = chatRoom.participants.find(
       (p) => p.participantId.toString() !== userId
     );
@@ -189,7 +180,6 @@ export const room = async (req, res) => {
         .json({ success: false, message: "No other participant found" });
     }
 
-    // ดึงข้อมูลผู้ใช้จาก model ที่ถูกต้อง
     let participant;
     if (otherParticipant.participantModel === "Mate") {
       participant = await Mate.findById(

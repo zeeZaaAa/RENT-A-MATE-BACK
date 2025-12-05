@@ -26,9 +26,9 @@ export const createPaymentIntent = async (req, res) => {
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // แปลงเป็นสตางค์
+      amount: Math.round(amount * 100), 
       currency: "thb",
-      automatic_payment_methods: { enabled: true }, // ให้ Stripe จัดการประเภทการจ่ายเงิน
+      automatic_payment_methods: { enabled: true }, 
     });
 
     booking.stripePaymentIntentId = paymentIntent.id;

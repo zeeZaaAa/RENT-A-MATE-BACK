@@ -8,8 +8,8 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 export const sendEmail = async (to, verifyLink) => {
   try {
     const msg = {
-      to, // email ของผู้รับ
-      from: process.env.EMAIL_USER, // ต้องเป็น verified sender
+      to, 
+      from: process.env.EMAIL_USER, 
       subject: "Verify your email - RENT A MATE",
       html: `
         <h2>Please verify your email</h2>

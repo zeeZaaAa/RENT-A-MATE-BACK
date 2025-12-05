@@ -26,7 +26,7 @@ export default function chatSocket(io) {
 
     console.log("User connected:", user.id);
 
-    // ----------------- joinRoom -----------------
+
     socket.on("joinRoom", async (roomId) => {
       if (!roomId) return;
 
@@ -48,7 +48,7 @@ export default function chatSocket(io) {
       console.log(`User ${user.id} joined room ${roomId}`);
     });
 
-    // ----------------- sendMessage -----------------
+
     socket.on("sendMessage", async ({ roomId, text }) => {
       if (!roomId || !text) return;
 
@@ -66,18 +66,17 @@ export default function chatSocket(io) {
       }
 
       try {
-        const senderModel = roleMap[user.role]; // map เป็นตัวพิมพ์ใหญ่ตรง enum
+        const senderModel = roleMap[user.role];
 
         const msg = await Message.create({
           chatRoomId: roomId,
           sender: user.id,
-          senderModel, // ใช้ role map
+          senderModel, 
           text,
           readBy: [user.id],
-          readByModel: [senderModel], // ต้องตรง enum เช่นกัน
+          readByModel: [senderModel], 
         });
 
-        // อัปเดต lastMessage ใน room
         room.lastMessage = text;
         room.lastMessageAt = new Date();
         room.updatedAt = new Date();
@@ -89,7 +88,6 @@ export default function chatSocket(io) {
       }
     });
 
-    // ----------------- markAsRead -----------------
     socket.on("markAsRead", async ({ roomId }) => {
       if (!roomId) return;
 

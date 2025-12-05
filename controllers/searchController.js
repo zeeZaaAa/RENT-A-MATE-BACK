@@ -3,7 +3,6 @@ import Renter from "../models/renters.js";
 
 export const searchMate = async (req, res) => {
   try {
-    // 🔹 Extract & sanitize input
     const {
       search = "",
       interest = "all",
@@ -13,10 +12,8 @@ export const searchMate = async (req, res) => {
       pageSize = 5,
     } = req.query;
 
-    // --- Validate search ---
     const searchStr = typeof search === "string" ? search.trim() : "";
 
-    // --- Validate interest ---
     let interestArr = [];
     if (interest === "all") {
       interestArr = [];
@@ -29,27 +26,23 @@ export const searchMate = async (req, res) => {
         .filter(Boolean);
     }
 
-    // --- Validate avaliable_date ---
     const validDates = ["weekdays", "weekends", "all"];
     const avaliableDateStr = validDates.includes(avaliable_date)
       ? avaliable_date
       : "";
 
-    // --- Validate minRate ---
     let minRateNum;
     if (minRate != null) {
       const n = Number(minRate);
       minRateNum = isNaN(n) ? undefined : Math.max(0, Math.min(5, n));
     }
 
-    // --- Validate page & pageSize ---
     const pageNum = Number(page);
     const pageSizeNum = Number(pageSize);
     const pageSafe = Number.isInteger(pageNum) && pageNum > 0 ? pageNum : 1;
     const pageSizeSafe =
       Number.isInteger(pageSizeNum) && pageSizeNum > 0 ? pageSizeNum : 5;
 
-    // 🔹 Build query
     const query = {};
 
     if (searchStr) {
@@ -74,12 +67,10 @@ export const searchMate = async (req, res) => {
       query.review_rate = { $gte: minRateNum };
     }
 
-    // 🔹 Pagination
     const skip = (pageSafe - 1) * pageSizeSafe;
     const total = await Mate.countDocuments(query);
     const mates = await Mate.find(query).skip(skip).limit(pageSizeSafe);
 
-    // 🔹 Response
     res.json({
       data: mates.map((m) => ({
         id: m._id,

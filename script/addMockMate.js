@@ -2,12 +2,6 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Mate from "../models/mates.js";
 
-// name: { type: String, required: true },
-//   surName: { type: String, required: true },
-//   email: { type: String, required: true, unique: true },
-//   passwordHash: { type: String, required: true },
-//   birthDate: { type: Date, required: true },
-//   role: { type: String, default: 'mate', enum: ['mate'], required: true },
 dotenv.config();
 
 const run = async () => {

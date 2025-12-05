@@ -3,7 +3,7 @@ import Mate from "../models/mates.js";
 
 export const getLikedMates = async (req, res) => {
   try {
-    const renterId = req.user.id; // ✅ ได้จาก middleware auth (JWT)
+    const renterId = req.user.id; 
     const { page = 1, pageSize = 6 } = req.query;
 
     const renter = await Renter.findById(renterId).populate("liked");
@@ -14,7 +14,6 @@ export const getLikedMates = async (req, res) => {
     const totalLiked = renter.liked.length;
     const totalPages = Math.ceil(totalLiked / pageSize);
 
-    // pagination slice
     const startIndex = (page - 1) * pageSize;
     const endIndex = startIndex + parseInt(pageSize);
     const mates = renter.liked.slice(startIndex, endIndex);
@@ -25,7 +24,7 @@ export const getLikedMates = async (req, res) => {
         name: m.name,
         surName: m.surName,
         nickname: m.nickname,
-        profile: m.pic?.secure_url, // profile image
+        profile: m.pic?.secure_url, 
         avaliable_date: m.avaliable_date,
         avaliable_time: m.avaliable_time,
         introduce: m.introduce,
@@ -43,7 +42,7 @@ export const getLikedMates = async (req, res) => {
 
 export const toggleLike = async (req, res) => {
   try {
-    const renterId = req.user.id; // มาจาก JWT middleware
+    const renterId = req.user.id;
     const { mateId } = req.body;
 
     if (!mateId) {
@@ -60,7 +59,6 @@ export const toggleLike = async (req, res) => {
       return res.status(404).json({ message: "Renter not found" });
     }
 
-    // เช็คแบบ string กัน ObjectId != string
     const alreadyLiked = renter.liked.some(
       (id) => id.toString() === mateId.toString()
     );
@@ -74,7 +72,7 @@ export const toggleLike = async (req, res) => {
         liked: populated.liked,
       });
     } else {
-      renter.liked.addToSet(mateId); // กันซ้ำ
+      renter.liked.addToSet(mateId); 
       await renter.save();
       const populated = await renter.populate("liked", "name surName pic");
       return res.json({

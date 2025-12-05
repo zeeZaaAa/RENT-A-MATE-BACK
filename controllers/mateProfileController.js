@@ -61,12 +61,10 @@ export const updateMe = async (req, res) => {
     if (!avaliable_date || !avaliable_date.trim())
       errors.avaliable_date = "Available date is required";
 
-    // Price rate: positive integer
     let numericPrice = Number(price_rate);
     if (!numericPrice || !Number.isInteger(numericPrice) || numericPrice <= 0)
       errors.price_rate = "Price rate must be a positive integer";
 
-    // Available time validation
     if (!Array.isArray(avaliable_time) || avaliable_time.length !== 2) {
       errors.avaliable_time = "Available time must have start and end";
     } else {
@@ -81,7 +79,6 @@ export const updateMe = async (req, res) => {
 
     if (Object.keys(errors).length > 0) return res.status(400).json({ errors });
 
-    // แปลง skill และ interest เป็น array จาก comma-separated string
     const skillArray = skill
       .split(",")
       .map((s) => s.trim())

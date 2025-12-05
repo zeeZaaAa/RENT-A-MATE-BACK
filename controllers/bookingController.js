@@ -22,7 +22,6 @@ export const book = async (req, res) => {
         .json({ message: "Others must be at most 30 characters" });
     }
 
-    // ตรวจ field
     const requiredFields = ["startTime", "endTime", "place", "purpose"];
     for (const field of requiredFields) {
       if (!req.body[field]) {
@@ -45,13 +44,12 @@ export const book = async (req, res) => {
         .json({ message: "Start time must be in the future" });
     }
 
-    // ดึง mate
     const mate = await Mate.findById(mateId);
     if (!mate) return res.status(404).json({ message: "Mate not found" });
 
-    // Validate กับ avaliable_date
+
     const startBangkok = utcToZonedTime(start, "Asia/Bangkok");
-    const day = startBangkok.getDay(); // 0=Sun,...6=Sat
+    const day = startBangkok.getDay(); 
     switch (mate.avaliable_date) {
       case "weekdays":
         if (day < 1 || day > 5)
@@ -73,8 +71,6 @@ export const book = async (req, res) => {
     console.log("availStart:", mate.avaliable_time[0]);
     console.log("availEnd:", mate.avaliable_time[1]);
 
-
-    // Validate กับ avaliable_time
     if (mate.avaliable_time && mate.avaliable_time.length === 2) {
       const [startStr, endStr] = mate.avaliable_time;
       const [availStartHour, availStartMin] = startStr.split(":").map(Number);
@@ -107,7 +103,6 @@ export const book = async (req, res) => {
           .json({ message: "End time is outside available hours" });
     }
 
-    // ตรวจสอบเวลาซ้ำ
     const isDuplicate = await HoldingBooking.findOne({
       mateId,
       $or: [{ startTime: { $lt: end }, endTime: { $gt: start } }],
@@ -123,11 +118,9 @@ export const book = async (req, res) => {
         .json({ message: "This time slot is already held or booked" });
     }
 
-    // ตรวจ renter
     const renter = await Renter.findById(renterId);
     if (!renter) return res.status(404).json({ message: "Renter not found" });
 
-    // คำนวณจำนวนชั่วโมงและ amount
     const diffMs = end - start;
     const hourDiff = diffMs / (1000 * 60 * 60);
     const amount = Math.ceil(hourDiff * mate.price_rate);
@@ -182,7 +175,6 @@ export const confirmBooking = async (req, res) => {
       });
     }
 
-    // ตรวจ payment
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const paymentIntent = await stripe.paymentIntents.retrieve(
       booking.stripePaymentIntentId
@@ -192,7 +184,6 @@ export const confirmBooking = async (req, res) => {
       return res.status(402).json({ message: "Payment not completed" });
     }
 
-    // ตรวจเวลาหมดอายุ
     const now = new Date();
     const created = new Date(booking.createdAt);
     if (now - created > 10 * 60 * 1000) {
@@ -202,11 +193,9 @@ export const confirmBooking = async (req, res) => {
         .json({ message: "Booking expired. Please try again." });
     }
 
-    // แปลงเวลาเป็น Bangkok
     const startBangkok = utcToZonedTime(booking.startTime, "Asia/Bangkok");
     const endBangkok = utcToZonedTime(booking.endTime, "Asia/Bangkok");
 
-    // ตรวจ available_date
     const day = startBangkok.getDay();
     switch (mate.avaliable_date) {
       case "weekdays":
@@ -226,7 +215,6 @@ export const confirmBooking = async (req, res) => {
         break;
     }
 
-    // ตรวจ available_time
     if (mate.avaliable_time && mate.avaliable_time.length === 2) {
       const [startStr, endStr] = mate.avaliable_time;
       const [availStartHour, availStartMin] = startStr.split(":").map(Number);
@@ -252,7 +240,6 @@ export const confirmBooking = async (req, res) => {
           .json({ message: "End time is outside available hours" });
     }
 
-    // ตรวจเวลาซ้ำทั้ง HoldingBooking และ Transaction
     const conflictHolding = await HoldingBooking.findOne({
       mateId: booking.mateId,
       _id: { $ne: booking._id },
@@ -395,7 +382,6 @@ export const unavaliable = async (req, res) => {
       return res.status(400).json({ message: "mateId and date are required" });
     }
 
-    // สร้าง start/end ของวันแบบ local time
 
     const startOfDayUTC = zonedTimeToUtc(`${date}T00:00:00`, "Asia/Bangkok");
     const endOfDayUTC = zonedTimeToUtc(`${date}T23:59:59.999`, "Asia/Bangkok");
@@ -403,7 +389,6 @@ export const unavaliable = async (req, res) => {
     // console.log(`startOfDay: ${startOfDay}`);
     // console.log(`endOfDay: ${endOfDay}`);
 
-    // ดึงทั้ง HoldingBooking และ Transaction
     const [holdings, transactions] = await Promise.all([
       HoldingBooking.find({
         mateId,
@@ -418,7 +403,6 @@ export const unavaliable = async (req, res) => {
       }),
     ]);
 
-    // รวมเป็น unavailable slots
     const unavailableSlots = [
       ...holdings.map((b) => ({
         start: b.startTime,
@@ -429,7 +413,6 @@ export const unavaliable = async (req, res) => {
         end: t.endTime,
       })),
     ];
-    // console.log(`unavailableSlots: ${unavailableSlots}`);
     res.json(unavailableSlots);
   } catch (err) {
     console.error(err);
@@ -503,7 +486,6 @@ export const request = async (req, res) => {
   }
 };
 
-// กด Accept
 export const acceptRequest = async (req, res) => {
   try {
     const transaction = await Transaction.findById(req.params.id);
@@ -530,7 +512,6 @@ export const acceptRequest = async (req, res) => {
   }
 };
 
-// กด Reject + Refund
 export const rejectRequest = async (req, res) => {
   try {
     const transaction = await Transaction.findById(req.params.id);
@@ -551,7 +532,6 @@ export const rejectRequest = async (req, res) => {
       return res.status(400).json({ message: "No payment to refund" });
     }
 
-    // ✅ Refund ผ่าน Stripe
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const refund = await stripe.refunds.create({
       payment_intent: transaction.stripePaymentIntentId,
@@ -607,8 +587,8 @@ export const getTransactions = async (req, res) => {
       purpose: t.purpose,
       others: t.others,
       status: t.status,
-      canCancel: t.status === "paid", // ยกเลิกได้ถ้ายังแค่จ่ายเงิน
-      canReview: t.status === "end", // review ได้ก็ต่อเมื่อ booking end แล้ว
+      canCancel: t.status === "paid", 
+      canReview: t.status === "end", 
     }));
 
     res.json({
@@ -626,7 +606,6 @@ export const getTransactions = async (req, res) => {
   }
 };
 
-// ยกเลิก booking ของ renter
 export const cancelTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findById(req.params.id);
@@ -647,7 +626,6 @@ export const cancelTransaction = async (req, res) => {
       return res.status(400).json({ message: "No payment to refund" });
     }
 
-    // ✅ Refund ผ่าน Stripe
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const refund = await stripe.refunds.create({
       payment_intent: transaction.stripePaymentIntentId,
@@ -739,14 +717,12 @@ export const endBooking = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    // ตรวจสอบสิทธิ์ว่าเป็น mate ของ booking นี้
     if (String(booking.mateId) !== String(mateId)) {
       return res
         .status(403)
         .json({ message: "You are not the mate of this booking" });
     }
 
-    // ตรวจสอบว่า status สามารถ end ได้
     if (booking.status !== "confirmed") {
       return res
         .status(400)

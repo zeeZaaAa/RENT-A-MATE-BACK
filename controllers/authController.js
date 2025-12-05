@@ -14,7 +14,6 @@ import {
 } from "../utils/createVerifyToken.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
-// มาที่ register แล้วให้ sendOTP และ บันทึกข้อมูลลง db แบบชั่วคราว
 
 export const register = async (req, res) => {
   const { name, surName, email, password, birthDate, role } = req.body;
@@ -59,14 +58,13 @@ export const register = async (req, res) => {
     const dob = new Date(birthDate);
     const today = new Date();
 
-    // ตรวจสอบว่า birthDate ไม่อยู่ในอนาคต
     if (dob > today) {
       return res
         .status(400)
         .json({ message: "Birth date cannot be in the future" });
     }
 
-    // คำนวณอายุ
+
     let age = today.getFullYear() - dob.getFullYear();
     const m = today.getMonth() - dob.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
@@ -84,7 +82,7 @@ export const register = async (req, res) => {
     const verifyTokenHash = hashVerifyToken(verifyToken);
 
     await Unverify_user.updateOne(
-      { email }, // filter
+      { email }, 
       {
         $set: {
           name,
@@ -96,7 +94,7 @@ export const register = async (req, res) => {
           expiresAt,
         },
       },
-      { upsert: true } // ถ้าไม่มีจะสร้าง document ใหม่
+      { upsert: true } 
       );
 
 
@@ -181,7 +179,6 @@ export const verifyEmail = async (req, res) => {
       return res.status(400).json({ message: "Token expired" });
     }
 
-    // สร้าง user ตัวจริง
     if (user.role === "mate") {
       await Mate.create({
         name: user.name,
@@ -219,7 +216,6 @@ export const logout = async (req, res) => {
   }
 
   try {
-    // ลบ refresh token จาก DB
     await RefreshTokenModel.findOneAndDelete({ token: refreshToken });
 
     return res.status(200).json({ message: "Logged out successfully" });

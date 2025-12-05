@@ -4,7 +4,7 @@ const messageSchema = new mongoose.Schema(
   {
     chatRoomId: { type: mongoose.Schema.Types.ObjectId, ref: "ChatRoom", required: true },
     sender: { type: mongoose.Schema.Types.ObjectId, refPath: "senderModel", required: true },
-    senderModel: { type: String, enum: ["Mate", "Renter"], required: true }, // ตรงกับชื่อ model
+    senderModel: { type: String, enum: ["Mate", "Renter"], required: true }, 
     text: { type: String, required: true },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, refPath: "readByModel" }],
     readByModel: [{ type: String, enum: ["Mate", "Renter"] }],
