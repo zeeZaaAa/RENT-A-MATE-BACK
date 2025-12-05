@@ -1,7 +1,7 @@
 ## Description
 This is a Rent a mate (Back End) project. A project that made to access the SAIG laboratory KMITL.
 
-## Feture:
+## Features:
 * Roles base
 * Renting System
 * JWT Authenication
